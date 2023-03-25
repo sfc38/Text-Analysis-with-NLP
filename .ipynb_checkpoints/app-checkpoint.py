@@ -1,57 +1,116 @@
 import streamlit as st
-import spacy
-import spacy.cli
-import spacyturk
+import my_functions
+import pandas as pd
 
-st.header("Remove stopwords and punctuation")
 
-if 'is_language_models_loaded' not in st.session_state:    
+sidebar = st.sidebar
+container_setup = st.container()
+container_load_model = st.container()
+container_upload_file = st.container()
+container_select_language = st.container()
+container_preprocess = st.container()
+container_plot_message_count_vs_time_bar = st.container()
+container_plot_total_messages_by_sender = st.container()
+container_create_cumulative_count_bar_chart = st.container()
+container_plot_hourly_count_plotly = st.container()
+container_create_wordcloud = st.container()
+container_create_word_frequency_figure = st.container()
 
-    # display a loading message while the model is loading
-    with st.spinner("Loading language models..."):
 
-        # check if the en_core_web_sm model is already installed
-        try:
-            nlp_en = spacy.load('en_core_web_sm')
-        except OSError:
-            # download the en_core_web_sm model from spaCy
-            spacy.cli.download('en_core_web_sm')
-            nlp_en = spacy.load('en_core_web_sm')
-
-        try:
-            nlp_tr = spacy.load('tr_floret_web_lg')
-        except OSError:
-            # downloads the spaCyTurk model
-            spacyturk.download('tr_floret_web_lg')
-            nlp_tr = spacy.load('tr_floret_web_lg')
-            
-        st.session_state.nlp_en = nlp_en
-        st.session_state.nlp_tr = nlp_tr
-        
-    # display the loaded model once it is done loading
-    st.success("Language models are loaded.")
+with sidebar:
+    st.title('Load sample data')
+    if st.button('Click to load sample data'):
+        df = pd.read_csv('sample_chat.txt', delimiter='\t', header=None, names=['message'])
+        st.session_state.df = df
+        st.success('Sample data loaded successfully!')
+      
     
-    st.session_state.is_language_models_loaded = True
+with container_setup:
+    st.title('WhatsApp Chat Analysis')
+    
+    text = '''Hello! You can upload your group chat and view the analysis. 
+    To learn how to download your WhatsApp group chat, please check out this _.'''
+    url = "https://youtu.be/Dv5d7RKUyGY"
+    st.markdown(f"{text.replace('_', f'[youtube link]({url})')}", unsafe_allow_html=True)
 
-def clean_text(text, nlp):
-    doc = nlp(text) 
-    # exclude punctuation and stop words
-    words = [token.text for token in doc if not token.is_punct and not token.is_stop and not token.text.isspace()] 
-    return words
+        
+with container_load_model:       
+    if 'is_language_models_loaded' not in st.session_state:    
+        # display a loading message while the model is loading
+        with st.spinner("Loading language models..."):
+            nlp_en, nlp_tr = my_functions.load_language_models()
+            st.session_state.nlp_en = nlp_en
+            st.session_state.nlp_tr = nlp_tr     
+        # st.success("Language models are loaded.")
+        st.session_state.is_language_models_loaded = True
+    
+    
+with container_upload_file:
+    uploaded_file = st.file_uploader("Upload the WhatsApp chat file (.txt file)")
+    text = '''<p style='font-size: small'><strong>*</strong> 
+    I do not have access to the uploaded chats and they are not stored anywhere.</p>'''
+    st.markdown(text, unsafe_allow_html=True)
+    
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file, delimiter='\t', header=None, names=['message'])
+        st.session_state.df = df
 
-options = ["EN", "TR"]
-selected_option = st.selectbox("Select the language of the text", options)
-if selected_option == "EN":
-    st.session_state.model = st.session_state.nlp_en
-elif selected_option == "TR":
-    st.session_state.model = st.session_state.nlp_tr
+        
+with container_select_language:
+    options = ["EN", "TR"]
+    selected_option = st.selectbox("Select the language of the text", options)
+    if selected_option == "EN":
+        st.session_state.model = st.session_state.nlp_en
+        st.session_state.clean_fn = my_functions.clean_punct_stop_space_lemma
+    elif selected_option == "TR":
+        st.session_state.model = st.session_state.nlp_tr
+        st.session_state.clean_fn = my_functions.clean_punct_stop_space
 
-text_input = st.text_area("Enter some text", height=100)
-st.write("Input Text:")
-if text_input is not None:
-    st.write(text_input)
+        
+with container_preprocess:
+    if 'df' in st.session_state:
+        df = st.session_state.df
+        df = my_functions.extract_columns(df)
+        df = my_functions.add_datetime_column(df)
+        df = my_functions.add_date_columns(df)
+        df = my_functions.clean_and_count_words(df, st.session_state.clean_fn, st.session_state.model)
+        st.session_state.df = df
+        
+        
+with container_plot_message_count_vs_time_bar:
+    if 'df' in st.session_state:
+        fig = my_functions.plot_message_count_vs_time_bar(st.session_state.df)
+        st.plotly_chart(fig)
+        
+        
+with container_plot_total_messages_by_sender:
+    if 'df' in st.session_state:
+        fig = my_functions.plot_total_messages_by_sender(st.session_state.df)
+        st.plotly_chart(fig)
+        
 
-    words = clean_text(text_input, st.session_state.model)
+with container_create_cumulative_count_bar_chart:
+    if 'df' in st.session_state:
+        fig = my_functions.create_cumulative_count_bar_chart(st.session_state.df)
+        st.plotly_chart(fig)
 
-    st.write("Cleaned text as list of words:")
-    st.write(words)
+
+with container_plot_hourly_count_plotly:
+    if 'df' in st.session_state:
+        fig = my_functions.plot_hourly_count_plotly(st.session_state.df)
+        st.plotly_chart(fig)
+        
+                
+with container_create_wordcloud:
+    if 'df' in st.session_state:
+        with st.spinner("Loading the plot..."):
+            plt = my_functions.create_wordcloud(df)
+            st.pyplot(plt)
+            
+
+with container_create_word_frequency_figure:
+    if 'df' in st.session_state:
+        fig = my_functions.create_word_frequency_figure(df, 5, 6)
+        st.plotly_chart(fig)
+        
+    
