@@ -1,7 +1,8 @@
 import streamlit as st
 import my_functions
 import pandas as pd
-
+import io
+import re
 
 sidebar = st.sidebar
 container_setup = st.container()
@@ -20,7 +21,8 @@ container_create_word_frequency_figure = st.container()
 with sidebar:
     st.title('Load sample data')
     if st.button('Click to load sample data'):
-        df = pd.read_csv('sample_chat.txt', delimiter='\t', header=None, names=['message'])
+        file_name = 'sample_chat.txt'
+        df = my_functions.extract_data_from_file_path(file_name)
         st.session_state.df = df
         st.success('Sample data loaded successfully!')
       
@@ -31,7 +33,7 @@ with container_setup:
     text = '''Hello! You can upload your group chat and view the analysis. 
     To learn how to download your WhatsApp group chat, please check out this _.'''
     url = "https://youtu.be/Dv5d7RKUyGY"
-    st.markdown(f"{text.replace('_', f'[youtube link]({url})')}", unsafe_allow_html=True)
+    st.markdown(f"{text.replace('_', f'[YouTube link]({url})')}", unsafe_allow_html=True)
 
         
 with container_load_model:       
@@ -46,14 +48,15 @@ with container_load_model:
     
     
 with container_upload_file:
-    uploaded_file = st.file_uploader("Upload the WhatsApp chat file (.txt file)")
+    uploaded_file = st.file_uploader("Upload the WhatsApp chat file (.txt file)", type=['txt'])
     text = '''<p style='font-size: small'><strong>*</strong> 
     I do not have access to the uploaded chats and they are not stored anywhere.</p>'''
     st.markdown(text, unsafe_allow_html=True)
     
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file, delimiter='\t', header=None, names=['message'])
-        st.session_state.df = df
+        with st.spinner("Loading the data..."):
+            df = my_functions.extract_data_from_streamlit_input(uploaded_file)
+            st.session_state.df = df
 
         
 with container_select_language:
@@ -70,7 +73,6 @@ with container_select_language:
 with container_preprocess:
     if 'df' in st.session_state:
         df = st.session_state.df
-        df = my_functions.extract_columns(df)
         df = my_functions.add_datetime_column(df)
         df = my_functions.add_date_columns(df)
         df = my_functions.clean_and_count_words(df, st.session_state.clean_fn, st.session_state.model)
@@ -79,26 +81,30 @@ with container_preprocess:
         
 with container_plot_message_count_vs_time_bar:
     if 'df' in st.session_state:
-        fig = my_functions.plot_message_count_vs_time_bar(st.session_state.df)
-        st.plotly_chart(fig)
+        with st.spinner("Loading the plot..."):
+            fig = my_functions.plot_message_count_vs_time_bar(st.session_state.df)
+            st.plotly_chart(fig)
         
         
 with container_plot_total_messages_by_sender:
     if 'df' in st.session_state:
-        fig = my_functions.plot_total_messages_by_sender(st.session_state.df)
-        st.plotly_chart(fig)
+        with st.spinner("Loading the plot..."):
+            fig = my_functions.plot_total_messages_by_sender(st.session_state.df)
+            st.plotly_chart(fig)
         
 
 with container_create_cumulative_count_bar_chart:
     if 'df' in st.session_state:
-        fig = my_functions.create_cumulative_count_bar_chart(st.session_state.df)
-        st.plotly_chart(fig)
+        with st.spinner("Loading the plot..."):
+            fig = my_functions.create_cumulative_count_bar_chart(st.session_state.df)
+            st.plotly_chart(fig)
 
 
 with container_plot_hourly_count_plotly:
     if 'df' in st.session_state:
-        fig = my_functions.plot_hourly_count_plotly(st.session_state.df)
-        st.plotly_chart(fig)
+        with st.spinner("Loading the plot..."):
+            fig = my_functions.plot_hourly_count_plotly(st.session_state.df)
+            st.plotly_chart(fig)
         
                 
 with container_create_wordcloud:

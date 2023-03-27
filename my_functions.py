@@ -2,6 +2,7 @@ import spacy
 import spacy.cli
 import spacyturk
 import pandas as pd
+import regex as re
 import plotly.express as px
 from collections import Counter
 from wordcloud import WordCloud
@@ -30,13 +31,26 @@ def load_language_models():
     return nlp_en, nlp_tr
 
 
-def extract_columns(df):
-    # define the regex pattern to match the date, time, sender, and message
-    pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
+def extract_data_from_file_path(file_path):
+    data = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        contents = f.read()
+        pattern = r'\[([^,\]]*?,[^,\]]*?)\]\s*([^:]+):\s*([\s\S]*?)(?=\n\[|$)'
+        matches = re.findall(pattern, contents)
+        
+        # Create a DataFrame from the list of tuples
+        df = pd.DataFrame(matches, columns=['datetime_str', 'sender', 'text'])
+    return df
 
-    # apply the regex pattern to the 'message' column to extract the datetime and other components
-    df[['datetime_str', 'sender', 'text']] = df['message'].str.extract(pattern)
 
+def extract_data_from_streamlit_input(uploaded_file):
+    data = []
+    contents = uploaded_file.read().decode('utf-8')
+    pattern = r'\[([^,\]]*?,[^,\]]*?)\]\s*([^:]+):\s*([\s\S]*?)(?=\n\[|$)'
+    matches = re.findall(pattern, contents)
+
+    # Create a DataFrame from the list of tuples
+    df = pd.DataFrame(matches, columns=['datetime_str', 'sender', 'text'])
     return df
 
 
