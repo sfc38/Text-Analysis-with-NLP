@@ -110,13 +110,19 @@ with container_plot_hourly_count_plotly:
 with container_create_wordcloud:
     if 'df' in st.session_state:
         with st.spinner("Loading the plot..."):
-            plt = my_functions.create_wordcloud(df)
+            plt = my_functions.create_wordcloud(st.session_state.df)
             st.pyplot(plt)
             
 
 with container_create_word_frequency_figure:
     if 'df' in st.session_state:
-        fig = my_functions.create_word_frequency_figure(df, 5, 6)
+        fig = my_functions.create_word_frequency_figure(st.session_state.df, 5, 6)
         st.plotly_chart(fig)
+
+        
+with container_create_word_frequency_figure:
+    if 'df' in st.session_state:
+        st.subheader('DataFrame')
+        st.write(st.session_state.df)
         
     
