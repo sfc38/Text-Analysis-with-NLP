@@ -1,4 +1,6 @@
+emoji==2.2.0
 matplotlib==3.5.2
+numpy==1.21.6
 pandas==1.5.3
 plotly==5.9.0
 regex==2022.7.9
