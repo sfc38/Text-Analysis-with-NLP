@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import emoji
 import calendar
+from datetime import timedelta
 
 
 @st.cache_data
@@ -140,11 +141,13 @@ def clean_omitted_text(df):
     df['is_image'] = df['text'].str.contains(r'image omitted', regex=True)*1
     df['is_audio'] = df['text'].str.contains(r'audio omitted', regex=True)*1
     df['is_video'] = df['text'].str.contains(r'video omitted', regex=True)*1
+    df['is_sticker'] = df['text'].str.contains(r'sticker omitted', regex=True)*1
 
     # Replace the strings 'image omitted', 'audio omitted', or 'video omitted' with an empty string using regex
-    df['text'] = df['text'].str.replace(r'image omitted', 'image', regex=True)
-    df['text'] = df['text'].str.replace(r'audio omitted', 'audio', regex=True)
-    df['text'] = df['text'].str.replace(r'video omitted', 'video', regex=True)
+    df['text'] = df['text'].str.replace(r'image omitted', '', regex=True)
+    df['text'] = df['text'].str.replace(r'audio omitted', '', regex=True)
+    df['text'] = df['text'].str.replace(r'video omitted', '', regex=True)
+    df['text'] = df['text'].str.replace(r'sticker omitted', '', regex=True)
     
     return df
 
@@ -158,7 +161,7 @@ def extract_replace_urls(df):
     df['urls'] = df['text'].str.findall(url_pattern)
 
     # Replace all URLs in the 'text' column with the string 'url'
-    df['text'] = df['text'].str.replace(url_pattern, 'url')
+    df['text'] = df['text'].str.replace(url_pattern, '')
 
     # Count the number of URLs in each row and store them in a new column 'n_urls'
     df['n_urls'] = df['urls'].apply(lambda x: len(x) if isinstance(x, list) else 0)
@@ -175,7 +178,7 @@ def extract_and_replace_emojis(df):
     def replace_emojis(text):
         for char in text:
             if emoji.is_emoji(char):
-                text = text.replace(char, ' emoji ')
+                text = text.replace(char, '')
         return text
 
     # Apply the extract_emojis function to the 'text' column and store the result in a new column 'emojis'
@@ -195,6 +198,35 @@ def add_datetime_column(df):
     df['datetime'] = pd.to_datetime(df['datetime_str'])
 
     return df
+
+
+def select_date_ranges(df):
+    """
+    Selects data from the last 12 months, current year, and previous year from the given DataFrame based on the
+    specified date column.
+    """
+    # Find the latest date in the datetime column of the DataFrame
+    latest_date = df['datetime'].max().date()
+
+    # Find the start date of the 12-month period
+    start_date = (latest_date - timedelta(days=365)).strftime('%Y-%m-%d')
+
+    # Filter the DataFrame to include only the last 12 months of data
+    df_last_12_months = df[df['datetime'] >= start_date]
+
+    # Find the year of the latest date
+    current_year = latest_date.year
+
+    # Filter the DataFrame to include only the rows from the current year
+    df_current_year = df[df['datetime'].dt.year == current_year]
+
+    # Find the year of the previous year
+    previous_year = current_year - 1
+
+    # Filter the DataFrame to include only the rows from the previous year
+    df_previous_year = df[df['datetime'].dt.year == previous_year]
+    
+    return df_last_12_months, df_current_year, df_previous_year
 
 
 def add_date_columns(df):
@@ -274,7 +306,10 @@ def plot_message_count_vs_time_bar(df):
 
     # plot the message counts vs time using Plotly
     fig = px.bar(count_by_datetime, x='datetime', y='count', 
-                 title='Number of messages across time. (Most active date: {})'.format(most_active_date))
+                 title='Number of messages across time. (Most active date: {})'.format(most_active_date),
+                 color=count_by_datetime['datetime'].apply(lambda x: 'most_active_day' 
+                                                           if x.strftime('%B %e, %Y') == most_active_date else 'other_days'),
+                 color_discrete_map={'most_active_day': 'red', 'other_days': 'blue'})
 
     # set the x-axis tick format and tick marks
     fig.update_layout(xaxis=dict(
@@ -294,7 +329,27 @@ def plot_total_messages_by_sender(df):
     count_by_sender = df.groupby('sender').size().reset_index(name='count')
     
     # plot the total number of messages per sender using Plotly
-    fig = px.bar(count_by_sender, x='sender', y='count', title='Total Number of Messages by Sender')
+    fig = px.bar(count_by_sender, x='sender', y='count', color='sender',
+                 title='Total Number of Messages by Sender', 
+                 color_discrete_sequence=px.colors.qualitative.Alphabet)
+    return fig
+
+
+def plot_total_messages_by_sender_pie(df):
+    # group the DataFrame by sender and count the number of rows in each group
+    count_by_sender = df.groupby('sender').size().reset_index(name='count')
+    
+    # plot the total number of messages per sender using Plotly
+    fig = px.pie(count_by_sender, values='count', names='sender', 
+                 title='Percentage of Messages by Sender',
+                 color='sender', color_discrete_sequence=px.colors.qualitative.Alphabet)
+
+    # modify the layout of the plot to make it larger
+    fig.update_layout(
+        width=600,
+        height=450
+    )
+
     return fig
 
 
@@ -355,14 +410,21 @@ def plot_hourly_count_plotly(df):
     # Merge the hourly_count DataFrame with the all_hours DataFrame to fill in missing hours with a count of 0
     hourly_count = pd.merge(all_hours, hourly_count, on='hour', how='left').fillna(0)
 
-    # Create a bar plot of the hourly count of messages
-    fig = px.bar(hourly_count, x='hour', y='count')
+    # Add a column to the DataFrame that indicates whether the hour is AM or PM
+    hourly_count['time_of_day'] = ['AM' if hour < 12 else 'PM' for hour in hourly_count['hour']]
+
+    # Create a bar plot of the hourly count of messages, with different colors for AM and PM
+    fig = px.bar(hourly_count, x='hour', y='count', color='time_of_day',
+                 color_discrete_map={'AM': 'lightblue', 'PM': 'navy'})
 
     # Set the title of the plot
     fig.update_layout(title_text='Hourly Count of Messages')
 
     # Set the x-axis label to 'Hour' and the y-axis label to 'Count'
-    fig.update_xaxes(title_text='Hour', tickmode='linear', dtick=1)
+    fig.update_xaxes(title_text='Hour', tickmode='linear', dtick=1,
+                     tickvals=hourly_count['hour'], 
+                     ticktext=[f'{hour} {time_of_day}' for hour, 
+                               time_of_day in zip(hourly_count['hour'], hourly_count['time_of_day'])])
     fig.update_yaxes(title_text='Count')
 
     return fig
@@ -491,6 +553,91 @@ def create_word_frequency_per_person_figure(df, person, n_words):
     fig = go.Figure()
     fig.add_trace(go.Bar(x=counts, y=words, orientation='h', showlegend=False))
     fig.update_layout(title=f'Top Words of {person}')
+
+    return fig
+
+
+def plot_message_count_by_day_of_week(df):
+    # group the DataFrame by day of the week and count the number of messages on each day
+    count_by_day = df.groupby('day_of_week').size().reset_index(name='count')
+
+    # create a bar plot of the number of messages by day of the week
+    fig = px.bar(count_by_day, x='day_of_week', y='count', 
+                 title='Number of Messages Sent by Day of the Week')
+
+    # set the x-axis tick labels to the names of the days of the week
+    fig.update_layout(xaxis=dict(
+        tickmode='array',
+        tickvals=[0, 1, 2, 3, 4, 5, 6],
+        ticktext=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    ))
+
+    # set the colors for the weekdays and weekends
+    fig.update_traces(marker=dict(color=['#1f77b4', '#1f77b4', '#1f77b4', '#1f77b4', '#1f77b4', '#2ca02c', '#2ca02c']))
+
+    return fig
+
+
+def plot_sender_media_stats(df, num_people):
+    # Load the dataframe
+    df_sub = df[['sender', 'n_urls', 'is_image', 'is_audio', 'is_video']]
+
+    # Group the dataframe by 'sender' and sum the relevant columns
+    df_grouped = df_sub.groupby('sender').sum()
+
+    # Calculate the row sums of the grouped dataframe and sort by them
+    df_grouped = df_grouped.loc[df_grouped.sum(axis=1).sort_values(ascending=False).index]
+
+    # Select the first `num_people` unique senders
+    senders = df_grouped.index[:num_people]
+
+    # Define the xtick labels
+    xtick_names = ['num url', 'num images', 'num audio', 'num video']
+
+    # Create a subplot of bar plots for each sender
+    def get_subplots_layout(num_people):
+        if num_people == 1:
+            num_rows = 1
+            num_cols = 1
+        elif num_people == 2:
+            num_rows = 1
+            num_cols = 2
+        elif num_people == 4:
+            num_rows = 2
+            num_cols = 2
+        else:
+            num_rows = (num_people + 2) // 3
+            num_cols = 3
+        return num_rows, num_cols
+
+    num_rows, num_cols = get_subplots_layout(num_people)
+
+    fig = make_subplots(rows=num_rows, cols=num_cols, subplot_titles=senders)
+
+    fig_height = 250 * num_rows
+
+    # Initialize the y-axis range to the maximum value across all senders
+    y_max = df_grouped.values.max()
+
+    for i, sender in enumerate(senders):
+        # Filter the grouped dataframe by the sender
+        df_sender = df_grouped.loc[sender]
+
+        # Create a bar trace for the sender
+        trace = go.Bar(x=xtick_names, y=df_sender.values, name=sender)
+
+        # Add the bar trace to the subplot
+        fig.add_trace(trace, row=(i // 3) + 1, col=(i % 3) + 1)
+
+        # Update the y-axis label for the first subplot in each row
+        if i % 3 == 0:
+            fig.update_yaxes(title_text='Count', row=(i // 3) + 1, col=1)
+
+        # Set the y-axis range for each subplot to the maximum value across all senders
+        fig.update_yaxes(range=[0, y_max], row=(i // 3) + 1, col=(i % 3) + 1)
+
+    # Update the subplot layout
+    fig.update_layout(title="Number of Media Shared by Sender", height=fig_height)
 
     return fig
 
@@ -787,3 +934,4 @@ def get_user_stats(df):
                                                            'n_unique_emojis']]
 
     return df_stats
+
