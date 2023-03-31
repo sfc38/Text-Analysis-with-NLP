@@ -41,7 +41,9 @@ def extract_data_from_file_path(file_path):
     data = []
     with open(file_path, 'r', encoding='utf-8') as file:
         for line in file:
-            pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
+            pattern = r'\[(.*?)\]\s([^:]+):\s(.+)'
+            # pattern = r'\[(.*?)\]\s(.+):\s(.+)'
+            # pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
             # pattern = r'\[(.*?[0-9]{1}.*?[0-9]{2}.*?)\]\s([\w\s]+):\s(.+)'
             match = re.search(pattern, line)
             if match:
@@ -60,7 +62,9 @@ def extract_data_from_file_path_all_lines(file_path):
     data = []
     with open(file_path, 'r', encoding='utf-8') as file:
         for i, line in enumerate(file):
-            pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
+            pattern = r'\[(.*?)\]\s([^:]+):\s(.+)'
+            # pattern = r'\[(.*?)\]\s(.+):\s(.+)'
+            # pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
             # pattern = r'\[(.*?[0-9]{1}.*?[0-9]{2}.*?)\]\s([\w\s]+):\s(.+)'
             match = re.search(pattern, line)
             if match:
@@ -83,7 +87,9 @@ def extract_data_from_file_path_all_lines(file_path):
 def extract_data_from_streamlit_input(uploaded_file):
     data = []
     for line in uploaded_file:
-        pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
+        pattern = r'\[(.*?)\]\s([^:]+):\s(.+)'
+        # pattern = r'\[(.*?)\]\s(.+):\s(.+)'
+        # pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
         # pattern = r'\[(.*?[0-9]{1}.*?[0-9]{2}.*?)\]\s([\w\s]+):\s(.+)'
         match = re.search(pattern, line.decode('utf-8'))
         if match:
@@ -101,7 +107,9 @@ def extract_data_from_streamlit_input(uploaded_file):
 def extract_data_from_streamlit_input_all_lines(uploaded_file):
     data = []
     for i, line in enumerate(uploaded_file):
-        pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
+        pattern = r'\[(.*?)\]\s([^:]+):\s(.+)'
+        # pattern = r'\[(.*?)\]\s(.+):\s(.+)'
+        # pattern = r'\[(.*?)\]\s([\w\s]+):\s(.+)'
         # pattern = r'\[(.*?[0-9]{1}.*?[0-9]{2}.*?)\]\s([\w\s]+):\s(.+)'
         line = line.decode('utf-8')
         match = re.search(pattern, line)

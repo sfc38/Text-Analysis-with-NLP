@@ -8,43 +8,25 @@ import plotly.io as pio
 
 
 # st.balloons()
-
-container_setup = st.container()
-container_load_model = st.container()
-
+container_setup_load_model = st.container()
 sidebar = st.sidebar
 container_preprocess = st.container()
-
-container_group_stats = st.container()
-container_user_stats = st.container()
-
-container_plot_message_count_vs_time_bar = st.container()
-container_sender_plots = st.container()
-container_plot_hourly_count_plotly = st.container()
-
-container_word_plots = st.container()
-container_word_plots2 = st.container()
-
-container_create_word_frequency_per_person_figure = st.container()
-container_plot_message_count_by_day_of_week = st.container()
-container_plot_sender_media_stats = st.container()
-
+container_stats = st.container()
+container_plots = st.container()
+# container_create_word_frequency_per_person_figure = st.container()
 container_download_report = st.container()
 
 
-with container_setup:
+with container_setup_load_model:
     st.title('WhatsApp Chat Analysis')
     st.write('Please use left sidebar to upload data.')
-    
-    
-with container_load_model:       
+       
     if 'is_language_models_loaded' not in st.session_state:    
         # display a loading message while the model is loading
         with st.spinner("Loading language models..."):
             nlp_en, nlp_tr = load_language_models()
             st.session_state.nlp_en = nlp_en
             st.session_state.nlp_tr = nlp_tr     
-        # st.success("Language models are loaded.")
         st.session_state.is_language_models_loaded = True
         
 
@@ -57,7 +39,8 @@ with sidebar:
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            selected_language = st.selectbox("Text Lang.", ["EN", "TR"], key='selected_language') 
+
+            selected_language = st.selectbox("Text Lang.", ["EN", "TR"], key='selected_language')
         
         with col2:
             selected_duration = st.selectbox("Duration", ["Entire Duration", "Last 12 Months", "Current Year", "Last Year"], 
@@ -89,8 +72,7 @@ with sidebar:
 with container_preprocess:
     if 'df' in st.session_state:
         with st.spinner("Processing data... Please be patient. It may take up to 30 seconds depending on the size of the data. Once ready, scroll down to see the entire analysis."):
-           
-            
+             
             df = st.session_state.df
             df = add_datetime_column(df)
             
@@ -114,13 +96,14 @@ with container_preprocess:
             df = add_date_columns(df)
             df = clean_and_count_words(df, st.session_state.clean_fn, st.session_state.model)
             st.session_state.df = df
-
+        
             
-with container_group_stats:
-    st.subheader('Group Stats')
+with container_stats:
     if 'df' in st.session_state:
-        with st.spinner("Loading the group stats..."):
-
+        st.subheader('Group Stats')
+        with st.spinner("Loading stats..."):
+            
+            # Group Stats
             group_stats = create_group_stats_part_1(st.session_state.df)
             group_stats = create_group_stats_part_2(st.session_state.df, group_stats)
             my_dict = group_stats
@@ -134,12 +117,9 @@ with container_group_stats:
             # Display the table in Streamlit
             st.table(group_data)
 
-
-with container_user_stats:
-    st.subheader('User Stats')
-    if 'df' in st.session_state:
-        with st.spinner("Loading the user stats..."):
             
+            # User Stats
+            st.subheader('User Stats')
             df_stats = get_user_stats(st.session_state.df)
             
             #  ['Person', 'Num Messages', 'Max Messages in Day', 'Most Active Date',
@@ -147,7 +127,6 @@ with container_user_stats:
             # 'Unique Words / Message', 'Most Active Day of Week', 'Most Active Hour',
             # 'Images', 'Audios', 'Videos', 'URLs', 'Emojis', 'Common Emoji',
             # 'Unique Emoji']
-        
         
             # Split the original dataframe into two halves
             df_stats_1 = df_stats[['Person Name', 'Num Messages', 'Max Messages in Day', 
@@ -160,61 +139,50 @@ with container_user_stats:
         
             tab1, tab2, tab3 = st.tabs(["User Stats Part 1", "User Stats Part 2", "User Stats Part 3"])
             
+            h = len(df_stats)
+            if len(df_stats) > 20:
+                h = 20
+            height = h * 35 + 35
+                
             with tab1:
                 df_stats_1_s = df_stats_1.style.highlight_max(subset=['Num Messages','Max Messages in Day', 'Total Words', 'Unique Words'])
-                st.dataframe(df_stats_1_s, height = len(df_stats)*35 + 35)
+                st.dataframe(df_stats_1_s, height = height)
                 
             with tab2:
                 df_stats_2_s = df_stats_2.style.highlight_max(subset=['Words / Message', 'Unique Words / Message'])
-                st.dataframe(df_stats_2_s, height = len(df_stats)*35 + 35)
+                st.dataframe(df_stats_2_s, height = height)
                 
             with tab3:
                 df_stats_3_s = df_stats_3.style.highlight_max(subset=['Images', 'Audios', 'Videos', 'URLs', 'Emojis', 'Unique Emoji'])
-                st.dataframe(df_stats_3_s, height = len(df_stats)*35 + 35)
+                st.dataframe(df_stats_3_s, height = height)
 
         
-with container_plot_message_count_vs_time_bar:
-    st.subheader('Number of Messages by Date Plot')
-    if 'df' in st.session_state:
-        with st.spinner("Loading the plot..."):
+with container_plots:
+    with st.spinner("Loading the plots..."):
+        if 'df' in st.session_state:
+            
+            st.subheader('Number of Messages by Date Plot')
             fig1 = plot_message_count_vs_time_bar(st.session_state.df)
             st.plotly_chart(fig1)
             
             
-with container_sender_plots:
-    st.subheader('Messages by Sender Plot')
-    if 'df' in st.session_state:
-        
-        with st.spinner("Loading the plot..."):
-        
+            st.subheader('Messages by Sender Plot')
             tab1, tab2 = st.tabs(["Bar Plot", "Pie Chart"])
             
             with tab1:
                 fig2 = plot_total_messages_by_sender(st.session_state.df)
-                st.plotly_chart(fig2)
-                
+                st.plotly_chart(fig2)    
             with tab2:
                 fig3 = plot_total_messages_by_sender_pie(st.session_state.df)
                 st.plotly_chart(fig3)
 
-        # with st.spinner("Loading the plot..."):
-        #     fig = create_cumulative_count_bar_chart(st.session_state.df)
-        #     st.plotly_chart(fig)
 
-
-with container_plot_hourly_count_plotly:
-    st.subheader('Number of Messages by Hour Plot')
-    if 'df' in st.session_state:
-        with st.spinner("Loading the plot..."):
+            st.subheader('Number of Messages by Hour Plot')
             fig4 = plot_hourly_count_plotly(st.session_state.df)
             st.plotly_chart(fig4)
 
-            
-with container_word_plots:
-    st.subheader("Top Words by Sender Plot")            
 
-    if 'df' in st.session_state:          
-        with st.spinner("Loading the plot..."):
+            st.subheader("Top Words by Sender Plot")
             n_people = st.session_state.df['sender'].nunique()
             if n_people > 18:
                 n_people = 18
@@ -222,14 +190,21 @@ with container_word_plots:
             st.plotly_chart(fig5)
             
         
-with container_word_plots2:
-    st.subheader("Group Wordcloud")            
-
-    if 'df' in st.session_state:
-        with st.spinner("Loading the plot..."):
+            st.subheader("Group Wordcloud")            
             plt = create_wordcloud(st.session_state.df)
             st.pyplot(plt)
-
+            
+     
+            st.subheader("Num Messages by Day of Week Plot")            
+            fig6 = plot_message_count_by_day_of_week(st.session_state.df)
+            st.plotly_chart(fig6)
+            
+            
+            st.subheader("Num of Media Shared by Sender Plot")   
+            fig7 = plot_sender_media_stats(st.session_state.df, 9)
+            st.plotly_chart(fig7)
+            
+            
                 
 # with container_create_word_frequency_per_person_figure:
 #     st.subheader("Personalized Plots")            
@@ -249,25 +224,7 @@ with container_word_plots2:
 #         with st.spinner("Loading the plot..."):
 #             plt = create_wordcloud(df, selected_option)
 #             st.pyplot(plt)
-
-
-
-with container_plot_message_count_by_day_of_week:
-    st.subheader("Num Messages by Day of Week Plot")            
-
-    if 'df' in st.session_state:
-        with st.spinner("Loading the plot..."):
-            fig6 = plot_message_count_by_day_of_week(st.session_state.df)
-            st.plotly_chart(fig6)
-            
-            
-with container_plot_sender_media_stats:
-    st.subheader("Num of Media Shared by Sender Plot")   
-    with st.spinner("Loading the plot..."):
-        if 'df' in st.session_state:
-            fig7 = plot_sender_media_stats(st.session_state.df, 9)
-            st.plotly_chart(fig7)
-
+      
             
 with container_download_report:            
     if 'df' in st.session_state:        
