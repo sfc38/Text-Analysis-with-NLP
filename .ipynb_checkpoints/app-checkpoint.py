@@ -11,8 +11,9 @@ import plotly.io as pio
 container_setup_load_model = st.container()
 sidebar = st.sidebar
 container_preprocess = st.container()
-container_stats = st.container()
 container_plots = st.container()
+container_stats = st.container()
+
 # container_create_word_frequency_per_person_figure = st.container()
 container_download_report = st.container()
 
@@ -58,6 +59,15 @@ with sidebar:
             elif selected_language == "TR":
                 st.session_state.model = st.session_state.nlp_tr
                 st.session_state.clean_fn = clean_punct_stop_space
+       
+    # NOTE: You can remove the else part if you don't want the sample data uploaded as default.
+        else:
+            st.session_state.model = st.session_state.nlp_en
+            st.session_state.clean_fn = clean_punct_stop_space_lemma
+            file_name = 'sample_chat.txt'
+            df = extract_data_from_file_path_all_lines(file_name)
+            st.session_state.df = df 
+            
     
     # sample data
     st.subheader('Load sample data')
