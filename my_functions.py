@@ -35,7 +35,16 @@ def load_language_models():
             nlp_tr = spacy.load('tr_floret_web_lg')
         except Exception:
             nlp_tr = nlp_en
-        
+
+    # The spacyturk model ships without stop-word flags on its vocab, so
+    # `token.is_stop` is always False for Turkish text. Apply spaCy's Turkish
+    # stop-word list to the vocab so the existing clean function filters them.
+    from spacy.lang.tr.stop_words import STOP_WORDS as TR_STOP_WORDS
+    for word in TR_STOP_WORDS:
+        nlp_tr.vocab[word].is_stop = True
+        nlp_tr.vocab[word.capitalize()].is_stop = True
+        nlp_tr.vocab[word.upper()].is_stop = True
+
     return nlp_en, nlp_tr
 
 
