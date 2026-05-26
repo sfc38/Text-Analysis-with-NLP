@@ -30,9 +30,11 @@ def load_language_models():
     try:
         nlp_tr = spacy.load('tr_floret_web_lg')
     except OSError:
-        # downloads the spaCyTurk model
-        spacyturk.download('tr_floret_web_lg')
-        nlp_tr = spacy.load('tr_floret_web_lg')
+        try:
+            spacyturk.download('tr_floret_web_lg')
+            nlp_tr = spacy.load('tr_floret_web_lg')
+        except Exception:
+            nlp_tr = nlp_en
         
     return nlp_en, nlp_tr
 
@@ -151,11 +153,10 @@ def clean_omitted_text(df):
     df['is_video'] = df['text'].str.contains(r'video omitted', regex=True)*1
     df['is_sticker'] = df['text'].str.contains(r'sticker omitted', regex=True)*1
 
-    # Replace the strings 'image omitted', 'audio omitted', or 'video omitted' with an empty string using regex
-    df['text'] = df['text'].str.replace(r'image omitted', '', regex=True)
-    df['text'] = df['text'].str.replace(r'audio omitted', '', regex=True)
-    df['text'] = df['text'].str.replace(r'video omitted', '', regex=True)
-    df['text'] = df['text'].str.replace(r'sticker omitted', '', regex=True)
+    df['text'] = df['text'].str.replace('image omitted', '', regex=False)
+    df['text'] = df['text'].str.replace('audio omitted', '', regex=False)
+    df['text'] = df['text'].str.replace('video omitted', '', regex=False)
+    df['text'] = df['text'].str.replace('sticker omitted', '', regex=False)
     
     return df
 
@@ -168,8 +169,7 @@ def extract_replace_urls(df):
     # Extract all URLs in the 'text' column and store them in a new column 'urls'
     df['urls'] = df['text'].str.findall(url_pattern)
 
-    # Replace all URLs in the 'text' column with the string 'url'
-    df['text'] = df['text'].str.replace(url_pattern, '')
+    df['text'] = df['text'].str.replace(url_pattern, '', regex=True)
 
     # Count the number of URLs in each row and store them in a new column 'n_urls'
     df['n_urls'] = df['urls'].apply(lambda x: len(x) if isinstance(x, list) else 0)
@@ -375,7 +375,7 @@ def compute_cumulative_count(df):
     df_cumulative['cumulative_count'] = df_cumulative.groupby(['sender'])['count'].cumsum()
 
     # pivot the data to create a wide format
-    cumulative_count_df = df_cumulative.pivot(index='datetime', columns='sender', values='cumulative_count').fillna(method='ffill')
+    cumulative_count_df = df_cumulative.pivot(index='datetime', columns='sender', values='cumulative_count').ffill()
 
     # reset the index and create a new 'date' column
     cumulative_count_df = cumulative_count_df.reset_index().rename(columns={'datetime': 'date'})
