@@ -1,6 +1,7 @@
 import spacy
 import spacy.cli
 import spacyturk
+from spacy.lang.tr.stop_words import STOP_WORDS as _TR_STOP_WORDS
 import pandas as pd
 import numpy as np
 import regex as re
@@ -33,17 +34,13 @@ def load_language_models():
         try:
             spacyturk.download('tr_floret_web_lg')
             nlp_tr = spacy.load('tr_floret_web_lg')
-        except Exception:
+        except Exception as e:
+            st.warning(
+                f"Turkish model 'tr_floret_web_lg' could not be loaded "
+                f"({type(e).__name__}); falling back to the English model. "
+                f"Tokenisation will be less accurate for Turkish text."
+            )
             nlp_tr = nlp_en
-
-    # The spacyturk model ships without stop-word flags on its vocab, so
-    # `token.is_stop` is always False for Turkish text. Apply spaCy's Turkish
-    # stop-word list to the vocab so the existing clean function filters them.
-    from spacy.lang.tr.stop_words import STOP_WORDS as TR_STOP_WORDS
-    for word in TR_STOP_WORDS:
-        nlp_tr.vocab[word].is_stop = True
-        nlp_tr.vocab[word.capitalize()].is_stop = True
-        nlp_tr.vocab[word.upper()].is_stop = True
 
     return nlp_en, nlp_tr
 
@@ -259,14 +256,17 @@ def add_date_columns(df):
 
 
 def clean_punct_stop_space(text, nlp):
-    doc = nlp(text) 
-    # Use a list comprehension to filter out punctuation, stop words, and spaces
+    # Used for Turkish. The spacyturk model doesn't flag is_stop on its vocab,
+    # and the English fallback (when the TR model can't be downloaded) doesn't
+    # know Turkish stop words at all. Filter against spaCy's Turkish stop-word
+    # list directly so it works regardless of which model is loaded.
+    doc = nlp(text)
     words = [token.text.lower() for token in doc
-             if not token.is_punct 
-             and not token.is_stop 
-             and not token.is_digit 
+             if not token.is_punct
+             and not token.is_digit
              and not token.like_num
-             and not token.text.isspace()]
+             and not token.text.isspace()
+             and token.text.lower() not in _TR_STOP_WORDS]
     return words
 
 
