@@ -34,13 +34,12 @@ def load_language_models():
         try:
             spacyturk.download('tr_floret_web_lg')
             nlp_tr = spacy.load('tr_floret_web_lg')
-        except Exception as e:
-            st.warning(
-                f"Turkish model 'tr_floret_web_lg' could not be loaded "
-                f"({type(e).__name__}); falling back to the English model. "
-                f"Tokenisation will be less accurate for Turkish text."
-            )
-            nlp_tr = nlp_en
+        except Exception:
+            # spacy.blank('tr') ships with spaCy itself — provides Turkish
+            # tokenisation and the same STOP_WORDS list, no download needed.
+            # Sufficient for this app since we only tokenise + filter stop
+            # words for Turkish (no NER / POS / lemma used downstream).
+            nlp_tr = spacy.blank('tr')
 
     return nlp_en, nlp_tr
 
@@ -163,7 +162,28 @@ def clean_omitted_text(df):
     df['text'] = df['text'].str.replace('audio omitted', '', regex=False)
     df['text'] = df['text'].str.replace('video omitted', '', regex=False)
     df['text'] = df['text'].str.replace('sticker omitted', '', regex=False)
-    
+
+    # WhatsApp markers for edited / deleted messages pollute word frequencies
+    # if left in. Strip them (English and Turkish variants, optionally wrapped
+    # in angle brackets) before downstream tokenisation.
+    edited_deleted_pattern = (
+        r'<?\s*(?:'
+        r'This message was edited'
+        r'|This message was deleted'
+        r'|You deleted this message'
+        r'|Bu mesaj düzenlendi'
+        r'|Bu mesaj silindi'
+        r'|Bu mesajı sildiniz'
+        r')\s*>?'
+    )
+    df['is_edited'] = df['text'].str.contains(
+        r'(?:This message was edited|Bu mesaj düzenlendi)', regex=True) * 1
+    df['is_deleted'] = df['text'].str.contains(
+        r'(?:This message was deleted|You deleted this message'
+        r'|Bu mesaj silindi|Bu mesajı sildiniz)', regex=True) * 1
+    df['text'] = df['text'].str.replace(edited_deleted_pattern, '', regex=True)
+    df['text'] = df['text'].str.strip()
+
     return df
 
 
