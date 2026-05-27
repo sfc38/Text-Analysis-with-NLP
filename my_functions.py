@@ -488,20 +488,22 @@ def create_wordcloud(df, user_name='all'):
     else:
         data = get_word_counts(user_messages_per_user[user_name])
 
-    words = data.keys()
-    counts = data.values()
-
-    wordcloud = WordCloud(width=800, 
-                          height=400, 
-                          background_color='white').generate_from_frequencies(dict(zip(words, counts)))
+    frequencies = dict(data)
 
     plt.figure(figsize=(12, 10))
-    plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis('off')
-    
-    # add a  title
-    plt.title("Word Cloud for User: {}".format(user_name), fontdict={'fontsize': 12, 'fontweight': 'bold'}, pad=20, loc='left')
-    
+    plt.title("Word Cloud for User: {}".format(user_name),
+              fontdict={'fontsize': 12, 'fontweight': 'bold'}, pad=20, loc='left')
+
+    if not frequencies:
+        plt.text(0.5, 0.5, 'No words to display',
+                 ha='center', va='center', fontsize=16, color='gray')
+        return plt
+
+    wordcloud = WordCloud(width=800, height=400,
+                          background_color='white').generate_from_frequencies(frequencies)
+    plt.imshow(wordcloud, interpolation='bilinear')
+
     return plt
 
 
